@@ -13,6 +13,7 @@
 # define EDDSA_STATIC
 #endif
 #include "app.h"
+#include "key_pub.h"
 #include "base/log.h"
 #include "cppcompat/cstdlib.hpp"
 extern "C" const char *getprogname(); //stdlib.h. apple, bsd, android21
@@ -677,7 +678,6 @@ bool checkLicense(const char* key)
             return licensed != 0; // license == 0 means expired or a wrong key was set
     } else {
     // DO NOT print key in log! Print details instead
-        static const uint8_t kKeyPub[] = {0X4C, 0X82, 0X10, 0XE4, 0XD8, 0X2A, 0X9, 0XCE, 0X98, 0XB0, 0XF6, 0XB8, 0X20, 0X68, 0X5B, 0XD6, 0X74, 0X14, 0XB6, 0X26, 0X66, 0XB8, 0XAB, 0X25, 0X6C, 0X97, 0X92, 0X2F, 0X25, 0XC1, 0X80, 0X16};
         if (verify_key(key, kKeyPub)) {
             licensed = 1;
             return true;
