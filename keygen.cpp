@@ -14,7 +14,7 @@
 constexpr const char* private_default = "SET YOUR PRIVATE KEY DATA HERE";
 #endif
 
-#include "base/app.h"
+#include "app.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
