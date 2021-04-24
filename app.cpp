@@ -118,6 +118,16 @@ string Name()
     return "";
 }
 
+#if (_WIN32+0)
+static string to_utf8(const wchar_t* wstr, size_t wlen)
+{
+    const auto len = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, nullptr, 0, nullptr, nullptr);
+    string str(len, 0);
+    WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, (LPSTR)str.c_str(), len, nullptr, nullptr);
+    return str;
+}
+#endif
+
 string id()
 {
 #if defined(__APPLE__)
@@ -140,7 +150,7 @@ string id()
         free(data);
         return Name();
     }
-    void* buf = nullptr;
+    wchar_t* buf = nullptr;
     UINT bufLen = 0;
     string product, company;
     struct LANGANDCODEPAGE {
@@ -150,15 +160,14 @@ string id()
     UINT cbTranslate = 0;
     VerQueryValue(data, TEXT("\\VarFileInfo\\Translation"), (LPVOID*)&lpTranslate, &cbTranslate);
     // Read the file description for each language and code page.
-    for (int i=0; i < cbTranslate/sizeof(LANGANDCODEPAGE); i++) { // CompanyName
-        auto sub = fmt::to_string("\\StringFileInfo\\%04x%04x\\ProductName", lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
-            // Retrieve file description for language and code page "i".
-        if (VerQueryValueA(data, sub.data(), &buf, &bufLen))
-            product = (char*)buf;
-        sub = fmt::to_string("\\StringFileInfo\\%04x%04x\\CompanyName", lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
-            // Retrieve file description for language and code page "i".
-        if (VerQueryValueA(data, sub.data(), &buf, &bufLen))
-            company = (char*)buf;
+    for (int i = 0; i < cbTranslate/sizeof(LANGANDCODEPAGE); i++) {
+        wstring sub(64, 0);
+        swprintf_s(&sub[0], sub.size(), L"\\StringFileInfo\\%04x%04x\\ProductName", lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
+        if (VerQueryValueW(data, sub.data(), (LPVOID*)&buf, &bufLen))
+            product = to_utf8(buf, bufLen - 1); // bufLen: including terminal 0
+        swprintf_s(&sub[0], sub.size(), L"\\StringFileInfo\\%04x%04x\\CompanyName", lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
+        if (VerQueryValueW(data, sub.data(), (LPVOID*)&buf, &bufLen))
+            company = to_utf8(buf, bufLen - 1);
         if (!product.empty() || !company.empty())
             break;
     }
@@ -549,7 +558,7 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
         return std::tolower(c);
     });
     auto name = Name();
-    if (appid.find(kIdJoin) != string::npos || appid.find('.') != string::npos)
+    if (AppId.find(kIdJoin) != string::npos || AppId.find('.') != string::npos)
         name = id();
     std::transform(name.begin(), name.end(), name.begin(), [](char c){
         return std::tolower(c);
