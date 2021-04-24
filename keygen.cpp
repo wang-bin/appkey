@@ -22,6 +22,7 @@ constexpr const char* private_default = "SET YOUR PRIVATE KEY DATA HERE";
 #include <chrono>
 #include <string>
 #include <memory>
+#include <fstream>
 #include <iostream>
 #include <cstdlib> // putenv
 #if _WIN32
@@ -111,6 +112,13 @@ options:
         }
     }
 
+    if (!appid.empty()) {
+        cout << "appid bytes: " << appid.size() << endl;
+        ifstream is(appid, ios::binary);
+        if (is.is_open()) {
+            appid = string(istreambuf_iterator(is), istreambuf_iterator<char>());
+        }
+    }
     if (seconds >= 0)
         seconds += chrono::duration_cast<chrono::seconds>(now).count();
     if (gen) {
