@@ -96,6 +96,16 @@ int64_t timeAfterBuild()
     return duration_cast<seconds>(system_clock::now() - build).count();
 }
 
+#if (_WIN32+0)
+static string to_utf8(const wchar_t* wstr, size_t wlen)
+{
+    const auto len = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, nullptr, 0, nullptr, nullptr);
+    string str(len, 0);
+    WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, (LPSTR)str.c_str(), len, nullptr, nullptr);
+    return str;
+}
+#endif
+
 string Name()
 {
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__BIONIC__)
@@ -109,24 +119,15 @@ string Name()
     return __progname;
 #endif
 #ifdef _WIN32
-    string exe(MAX_PATH, 0); // TODO: get size
-    GetModuleFileNameA(nullptr, &exe[0], (DWORD)exe.size());
+    wstring wexe(MAX_PATH, 0); // TODO: get size
+    const auto len = GetModuleFileNameW(nullptr, &wexe[0], (DWORD)wexe.size());
+    auto exe = to_utf8(wexe.data(), len);
     auto d = exe.rfind("\\");
-    if (d != string::npos)
+    if (d != wstring::npos)
         return exe.substr(d+1, exe.rfind(".exe") - d - 1);
 #endif
     return "";
 }
-
-#if (_WIN32+0)
-static string to_utf8(const wchar_t* wstr, size_t wlen)
-{
-    const auto len = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, nullptr, 0, nullptr, nullptr);
-    string str(len, 0);
-    WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, (LPSTR)str.c_str(), len, nullptr, nullptr);
-    return str;
-}
-#endif
 
 string id()
 {
