@@ -96,12 +96,18 @@ int64_t timeAfterBuild()
     return duration_cast<seconds>(system_clock::now() - build).count();
 }
 
-#if (_WIN32+0)
-static string to_utf8(const wchar_t* wstr, size_t wlen)
+static uint32_t gCP = 65001; // CP_UTF8
+void setCodePage(uint32_t cp)
 {
-    const auto len = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, nullptr, 0, nullptr, nullptr);
+    gCP = cp;
+}
+
+#if (_WIN32+0)
+static string convert_codepage(const wchar_t* wstr, size_t wlen)
+{
+    const auto len = WideCharToMultiByte(gCP, 0, (LPCWSTR)wstr, wlen, nullptr, 0, nullptr, nullptr);
     string str(len, 0);
-    WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)wstr, wlen, (LPSTR)str.c_str(), len, nullptr, nullptr);
+    WideCharToMultiByte(gCP, 0, (LPCWSTR)wstr, wlen, (LPSTR)str.c_str(), len, nullptr, nullptr);
     return str;
 }
 #endif
@@ -121,7 +127,7 @@ string Name()
 #ifdef _WIN32
     wstring wexe(MAX_PATH, 0); // TODO: get size
     const auto len = GetModuleFileNameW(nullptr, &wexe[0], (DWORD)wexe.size());
-    auto exe = to_utf8(wexe.data(), len);
+    auto exe = convert_codepage(wexe.data(), len);
     auto d = exe.rfind("\\");
     if (d != wstring::npos)
         return exe.substr(d+1, exe.rfind(".exe") - d - 1);
@@ -165,10 +171,10 @@ string id()
         wstring sub(64, 0);
         swprintf_s(&sub[0], sub.size(), L"\\StringFileInfo\\%04x%04x\\ProductName", lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
         if (VerQueryValueW(data, sub.data(), (LPVOID*)&buf, &bufLen))
-            product = to_utf8(buf, bufLen - 1); // bufLen: including terminal 0
+            product = convert_codepage(buf, bufLen - 1); // bufLen: including terminal 0
         swprintf_s(&sub[0], sub.size(), L"\\StringFileInfo\\%04x%04x\\CompanyName", lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
         if (VerQueryValueW(data, sub.data(), (LPVOID*)&buf, &bufLen))
-            company = to_utf8(buf, bufLen - 1);
+            company = convert_codepage(buf, bufLen - 1);
         if (!product.empty() || !company.empty())
             break;
     }

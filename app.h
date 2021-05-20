@@ -22,6 +22,9 @@ bool checkLicense(const char* key = nullptr);
 std::string name();
 std::string id();
 
+// code page used by windows. default is CP_UTF8
+void setCodePage(uint32_t cp);
+
 void gen_pub(const uint8_t priv[32], uint8_t pub[32]);
 std::string gen_key(const uint8_t priv[32], const uint8_t pub[32], const std::string& osnames, const std::string& archnames, const std::string& restrictions, int64_t seconds, int16_t major, int16_t minor, const std::string& appid);
 bool verify_key(const std::string& key, const uint8_t pub[32]);
