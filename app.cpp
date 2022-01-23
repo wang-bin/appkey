@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2019-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK
  * MDK SDK: https://github.com/wang-bin/mdk-sdk
  *
@@ -72,6 +72,8 @@ static const char kIdJoin[] = "/";
 MDK_NS_BEGIN
 namespace App {
 
+void* gUserAddr = nullptr;
+
 using namespace chrono;
 static auto buildTime()
 {
@@ -110,9 +112,18 @@ static string convert_codepage(const wchar_t* wstr, size_t wlen)
     WideCharToMultiByte(gCP, 0, (LPCWSTR)wstr, wlen, (LPSTR)str.c_str(), len, nullptr, nullptr);
     return str;
 }
+
+static HMODULE get_user_module(int level = 0)
+{
+    if (level == 0 || !gUserAddr)
+        return nullptr;
+    MEMORY_BASIC_INFORMATION mbi{};
+    VirtualQuery(gUserAddr, &mbi, sizeof(mbi)); // or desktop GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCTSTR)address, &hModule))
+    return (HMODULE)mbi.AllocationBase;
+}
 #endif
 
-string Name()
+string Name(int level = 0)
 {
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__BIONIC__)
     if (getprogname)
@@ -126,16 +137,17 @@ string Name()
 #endif
 #ifdef _WIN32
     wstring wexe(MAX_PATH, 0); // TODO: get size
-    const auto len = GetModuleFileNameW(nullptr, &wexe[0], (DWORD)wexe.size());
+    const auto len = GetModuleFileNameW(get_user_module(level), &wexe[0], (DWORD)wexe.size());
     auto exe = convert_codepage(wexe.data(), len);
     auto d = exe.rfind("\\");
+    clog << "user module: " << exe << endl;
     if (d != wstring::npos)
         return exe.substr(d+1, exe.rfind(".exe") - d - 1);
 #endif
     return "";
 }
 
-string id()
+string id(int level)
 {
 #if defined(__APPLE__)
     auto b = CFBundleGetMainBundle();
@@ -147,15 +159,15 @@ string id()
 #ifdef _WIN32
 # if !(MDK_WINRT+0)
     TCHAR exe[MAX_PATH]{};
-    GetModuleFileName(nullptr, &exe[0], sizeof(exe));
+    GetModuleFileName(get_user_module(level), &exe[0], sizeof(exe));
     DWORD h = 0;
     auto sz = GetFileVersionInfoSize(&exe[0], &h);
     if (!sz)
-        return Name();
+        return Name(level);
     auto data = malloc(sz);
     if (!GetFileVersionInfo(&exe[0], h, sz, data)) {
         free(data);
-        return Name();
+        return Name(level);
     }
     wchar_t* buf = nullptr;
     UINT bufLen = 0;
@@ -183,7 +195,7 @@ string id()
 # endif
     // TODO: GetFileVersionInfo() query company name
 #endif
-    return Name();
+    return Name(level);
 }
 
 static bool skipLicense()
@@ -565,9 +577,15 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
         return std::tolower(c);
     });
     auto name = Name();
-    if (AppId.find(kIdJoin) != string::npos || AppId.find('.') != string::npos)
+    auto name2 = Name(1);
+    if (AppId.find(kIdJoin) != string::npos || AppId.find('.') != string::npos) {
         name = id();
+        name2 = id(1);
+    }
     std::transform(name.begin(), name.end(), name.begin(), [](char c){
+        return std::tolower(c);
+    });
+    std::transform(name2.begin(), name2.end(), name2.begin(), [](char c){
         return std::tolower(c);
     });
     if (!test.empty()) {
@@ -577,10 +595,10 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
     } else {
         std::clog << LogLevel::Info << TOSTR(MDK_NS) " license key for app: " << AppId << std::endl;
         if (len < sizeof(data.appid) - 1) {
-            if (name == appid)
+            if (name == appid || name2 == appid)
                 return true;
         } else {
-            if (name.find(appid) == 0)
+            if (name.find(appid) == 0 || name2.find(appid))
                 return true;
         }
     }
@@ -679,6 +697,10 @@ string gen_key(const uint8_t priv[ED25519_KEY_LEN], const uint8_t pub[ED25519_KE
 }
 
 
+void setUserAddress(void* addr)
+{
+    gUserAddr = addr;
+}
 
 bool checkLicense(const char* key)
 {

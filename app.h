@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2019-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK
  * MDK SDK: https://github.com/wang-bin/mdk-sdk
  *
@@ -14,13 +14,13 @@
 MDK_NS_BEGIN
 namespace App {
 
+void setUserAddress(void* addr);
 // if key is null and no valid key was set, will try to check env "MDK_KEY" value.
 // if key is null and a valid key was set, return true
 // if key is not null, check the key, save and return the result
 bool checkLicense(const char* key = nullptr);
 
-std::string name();
-std::string id();
+std::string id(int level = 0);
 
 // code page used by windows. default is CP_UTF8
 void setCodePage(uint32_t cp);
