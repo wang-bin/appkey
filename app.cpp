@@ -139,7 +139,7 @@ string Name(int level = 0)
     wstring wexe(MAX_PATH, 0); // TODO: get size
     const auto len = GetModuleFileNameW(get_user_module(level), &wexe[0], (DWORD)wexe.size());
     auto exe = convert_codepage(wexe.data(), len);
-    auto d = exe.rfind("\\");
+    auto d = exe.rfind('\\');
     clog << "user module: " << exe << endl;
     if (d != wstring::npos)
         return exe.substr(d+1, exe.rfind(".exe") - d - 1);
@@ -272,7 +272,7 @@ namespace App {
 static OS os_from_names(const string& S)
 {
     string s(S);
-    std::transform(s.begin(), s.end(), s.begin(), [](char c){
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){
         return std::tolower(c);
     });
     OS os = OS::Unknown;
@@ -308,7 +308,7 @@ static OS os_from_names(const string& S)
 static ARCH arch_from_names(const string& S)
 {
     string s(S);
-    std::transform(s.begin(), s.end(), s.begin(), [](char c){
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){
         return std::tolower(c);
     });
     ARCH arch = ARCH::Unknown;
@@ -346,7 +346,7 @@ static ARCH arch_from_names(const string& S)
 Restriction restriction_from_names(const string& S)
 {
     string s(S);
-    std::transform(s.begin(), s.end(), s.begin(), [](char c){
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){
         return std::tolower(c);
     });
     Restriction r = Restriction::None;
@@ -523,6 +523,7 @@ static bool verify_data_restriction(const KeyData& data, Restriction test = Rest
 
 static bool verify_data_time(const KeyData& data, int64_t test = -1)
 {
+    clog << "key time: " << data.time << endl;
     if (data.time < 0)
         return true;
     if (test >= 0) {
@@ -531,7 +532,7 @@ static bool verify_data_time(const KeyData& data, int64_t test = -1)
             return true;
     } else {
         auto now = chrono::system_clock::now().time_since_epoch();
-#if DEBUG
+#if 1//DEBUG
         std::clog << LogLevel::Info << TOSTR(MDK_NS) " license key will expire in " << data.time - chrono::duration_cast<chrono::seconds>(now).count() << " seconds" << std::endl;
 #endif
         static const bool earlier_than_build = timeAfterBuild() < 0;
@@ -552,7 +553,7 @@ static bool verify_data_version(const KeyData& data, int16_t test_major = -1, in
     if (data.major < 0 || data.minor < 0)
         return true;
     if (test_major >= 0 && test_minor >= 0) {
-        std::clog << "verify test time: " << test_major << "." << test_minor << "/" << data.major << "." << data.minor << std::endl;
+        std::clog << "verify test version: " << test_major << "." << test_minor << "/" << data.major << "." << data.minor << std::endl;
         if (((test_major << 16) | test_minor) <= ((data.major << 16) | data.minor))
             return true;
     } else {
@@ -573,7 +574,8 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
     AppId.resize(len);
     memcpy(&AppId[0], &data.appid[1], len);
     auto appid = AppId;
-    std::transform(appid.begin(), appid.end(), appid.begin(), [](char c){
+    // TODO: os != linux
+    std::transform(appid.begin(), appid.end(), appid.begin(), [](unsigned char c){
         return std::tolower(c);
     });
     auto name = Name();
@@ -582,10 +584,10 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
         name = id();
         name2 = id(1);
     }
-    std::transform(name.begin(), name.end(), name.begin(), [](char c){
+    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){
         return std::tolower(c);
     });
-    std::transform(name2.begin(), name2.end(), name2.begin(), [](char c){
+    std::transform(name2.begin(), name2.end(), name2.begin(), [](unsigned char c){
         return std::tolower(c);
     });
     if (!test.empty()) {
@@ -614,13 +616,14 @@ bool verify_key(const string& key, const uint8_t pub[ED25519_KEY_LEN])
     KeyData kd;
     assert(sizeof(kd) == data.size());
     memcpy(&kd, data.data(), sizeof(kd));
-    return verify_data_os(kd)
-        && verify_data_arch(kd)
-        && verify_data_restriction(kd)
-        && verify_data_time(kd)
-        && verify_data_version(kd)
-        && verify_data_appid(kd)
-        ;
+    bool ok = verify_data_os(kd);
+    ok &= verify_data_arch(kd);
+    ok &= verify_data_restriction(kd);
+    ok &= verify_data_time(kd);
+    ok &= verify_data_version(kd);
+    clog << "check version" << endl;
+    ok &= verify_data_appid(kd);
+    return ok;
 }
 
 bool verify_key(const std::string& key, const uint8_t pub[32], const std::string& osnames, const std::string& archnames, const std::string& restrictions, int64_t seconds, int16_t major, int16_t minor, const std::string& appid)
@@ -631,13 +634,13 @@ bool verify_key(const std::string& key, const uint8_t pub[32], const std::string
     KeyData kd;
     assert(sizeof(kd) == data.size());
     memcpy(&kd, data.data(), sizeof(kd));
-    return verify_data_os(kd, os_from_names(osnames))
-        && verify_data_arch(kd, arch_from_names(archnames))
-        && verify_data_restriction(kd, restriction_from_names(restrictions))
-        && verify_data_time(kd, seconds)
-        && verify_data_version(kd, major, minor)
-        && verify_data_appid(kd, appid)
-        ;
+    bool ok = verify_data_os(kd, os_from_names(osnames));
+    ok &= verify_data_arch(kd, arch_from_names(archnames));
+    ok &= verify_data_restriction(kd, restriction_from_names(restrictions));
+    ok &= verify_data_time(kd, seconds);
+    ok &= verify_data_version(kd, major, minor);
+    ok &= verify_data_appid(kd, appid);
+    return ok;
 }
 
 static KeyData gen_data(const string& osnames, const string& archnames, const std::string& restrictions, int64_t seconds, int16_t major, int16_t minor, const string& appid)
@@ -666,7 +669,7 @@ static KeyData gen_data(const string& osnames, const string& archnames, const st
         auto idata = reinterpret_cast<int*>(&kd.appid[i]);
         *idata = std::rand();
     }
-    return std::move(kd);
+    return kd;
 }
 
 void gen_pub(const uint8_t priv[ED25519_KEY_LEN], uint8_t pub[ED25519_KEY_LEN])
@@ -715,6 +718,7 @@ bool checkLicense(const char* key)
         if (!expired())
             return licensed != 0; // license == 0 means expired or a wrong key was set
     } else {
+        //clog << "verify key: " << key << endl;
     // DO NOT print key in log! Print details instead
         if (verify_key(key, kKeyPub)) {
             licensed = 1;
