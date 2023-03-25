@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2019-2023 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK
  * MDK SDK: https://github.com/wang-bin/mdk-sdk
  *
@@ -74,13 +74,13 @@ int main(int argc, const char** argv)
         } else if (strcmp(argv[i], "-key") == 0) {
             key = argv[++i];
         } else if (strcmp(argv[i], "-years") == 0) {
-            seconds = std::atoi(argv[++i])*12*30*24*3600;
+            seconds = std::atoll(argv[++i])*12*30*24*3600;
         } else if (strcmp(argv[i], "-months") == 0) {
-            seconds = std::atoi(argv[++i])*30*24*3600;
+            seconds = std::atoll(argv[++i])*30*24*3600;
         } else if (strcmp(argv[i], "-days") == 0) {
-            seconds = std::atoi(argv[++i])*24*3600;
+            seconds = std::atoll(argv[++i])*24*3600;
         } else if (strcmp(argv[i], "-seconds") == 0) {
-            seconds = std::atoi(argv[++i]);
+            seconds = std::atoll(argv[++i]);
         } else if (strcmp(argv[i], "-os") == 0) {
             os = argv[++i];
         } else if (strcmp(argv[i], "-arch") == 0) {
@@ -104,7 +104,7 @@ options:
     -seconds: expire seconds
     -os: target os or combinations. can be win32, windows, uwp, mac, ios, tvos, apple, android, linux, rpi, sunxi, sailfish, all
     -arch: target cpu. can be arm, aarch64, i386, x86, x86_64, x64, all
-    -restriction: can be glp, opensource, nonprofit, edu, sponsor, test
+    -restriction: can be gpl, opensource, nonprofit, edu, sponsor, test
     -major: max major version
     -minor: max minor version
     -appid: windows is exe name, or "$ProductName/$CompanyName" from rc; apple & android is app bundle id. otherwise is filename.

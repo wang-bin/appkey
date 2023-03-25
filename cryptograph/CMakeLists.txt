@@ -2,14 +2,11 @@ include(CheckCCompilerFlag)
 include(CheckPrototypeDefinition)
 include(CheckSymbolExists)
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.15)
 
 if(POLICY CMP0025)
 # MUST call before project() and enable_language
   cmake_policy(SET CMP0025 NEW) # since 3.0, prefer AppleClang instead of Clang. FIXME: ios is still Clang
-endif()
-if(NOT CMAKE_VERSION VERSION_LESS 3.0)
-  cmake_policy(SET CMP0048 NEW)
 endif()
 project(eddsa VERSION 0.6.0 DESCRIPTION "eddsa")# LANGUAGES C) # VERSION: cmake 3.0+
 
@@ -90,5 +87,5 @@ if (EDDSA_STATIC)
   set_property(TARGET eddsa-static APPEND PROPERTY COMPILE_DEFINITIONS EDDSA_BUILD EDDSA_STATIC)
   set_property(TARGET eddsa-static APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS EDDSA_STATIC)
 
-  install(TARGETS eddsa-static DESTINATION lib PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  #install(TARGETS eddsa-static DESTINATION lib PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 endif ()
