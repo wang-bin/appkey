@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2019-2023 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK
  * MDK SDK: https://github.com/wang-bin/mdk-sdk
  *
@@ -123,8 +123,35 @@ static HMODULE get_user_module(int level = 0)
 }
 #endif
 
+std::string path_from_addr(void* addr)
+{
+    if (!addr)
+        return {};
+#if (_WIN32+0)
+    MEMORY_BASIC_INFORMATION mbi{};
+    VirtualQuery(gUserAddr, &mbi, sizeof(mbi)); // or desktop GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCTSTR)address, &hModule))
+    string p;
+    DWORD len = 0;
+    do {
+        p.resize(p.size() + MAX_PATH);
+        //len = GetModuleFileNameW((HMODULE)mbi.AllocationBase, &wp[0], std::size(wp));
+        len = GetModuleFileNameA((HMODULE)mbi.AllocationBase, &p[0], p.size());
+    } while (len >= p.size());
+    p.resize(len);
+    //return convert_codepage(wp.data(), len);
+    return p;
+#elif defined(RTLD_DEFAULT) // check (0+__USE_GNU+__ELF__)? weak dlinfo? // mac, mingw, cygwin has no dlinfo
+_Pragma("weak dladdr") // dladdr is not always supported. android since 8(arm)/9(x86)
+    Dl_info info;
+    if (dladdr && dladdr(addr, &info))
+        return info.dli_fname;
+#endif
+    return {};
+}
+
 string Name(int level = 0)
 {
+    if (level == 0) {
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__BIONIC__)
     if (getprogname)
         return getprogname();
@@ -135,16 +162,20 @@ string Name(int level = 0)
 #if defined(__linux__) // android<21
     return __progname;
 #endif
+    }
+    auto mp = path_from_addr(gUserAddr);
 #ifdef _WIN32
-    wstring wexe(MAX_PATH, 0); // TODO: get size
-    const auto len = GetModuleFileNameW(get_user_module(level), &wexe[0], (DWORD)wexe.size());
-    auto exe = convert_codepage(wexe.data(), len);
-    auto d = exe.rfind('\\');
-    clog << "user module: " << exe << endl;
-    if (d != wstring::npos)
-        return exe.substr(d+1, exe.rfind(".exe") - d - 1);
+    auto d = mp.rfind('\\');
+#else
+    auto d = mp.rfind('/');
 #endif
-    return "";
+    clog << "user module: " << mp << endl;
+    if (d != string::npos)
+        mp = mp.substr(d + 1);
+    d = mp.rfind('.');
+    if (d != string::npos)
+        mp = mp.substr(0, d);
+    return mp;
 }
 
 string id(int level)
@@ -597,14 +628,14 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
     } else {
         std::clog << LogLevel::Info << TOSTR(MDK_NS) " license key for app: " << AppId << std::endl;
         if (len < sizeof(data.appid) - 1) {
-            if (name == appid || name2 == appid)
+            if (name == appid || name2 == appid || name2 == "lib" + appid)
                 return true;
         } else {
             if (name.find(appid) == 0 || name2.find(appid))
                 return true;
         }
     }
-    std::clog << LogLevel::Error << TOSTR(MDK_NS) " license key does not support current app: " << name << std::endl;
+    std::clog << LogLevel::Error << TOSTR(MDK_NS) " license key does not support current app: " << name << "|" << name2 << std::endl;
     return false;
 }
 
