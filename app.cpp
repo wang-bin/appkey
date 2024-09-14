@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2019-2024 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK
  * MDK SDK: https://github.com/wang-bin/mdk-sdk
  *
@@ -254,7 +254,8 @@ enum class OS : uint16_t {
     macOS = 1,
     iOS = 1 << 1, // including maccatalyst
     tvOS = 1 << 2,
-    Apple = macOS | iOS | tvOS,
+    visionOS = 1 << 10,
+    Apple = macOS | iOS | tvOS | visionOS,
     Win32 = 1 << 3,
     UWP = 1 << 4,
     Windows = Win32 | UWP,
@@ -450,7 +451,7 @@ static bool data_from_key_verify(const string& key, const uint8_t pub[ED25519_KE
 
 struct KeyData { // MUST be unique layout on all platforms!
     OS os = OS::All;
-    ARCH arch = ARCH::Alpha;
+    ARCH arch = ARCH::All;
     int16_t major = INT16_MAX;
     int16_t minor = INT16_MAX;
     int64_t time = INT64_MAX; // seconds
@@ -474,6 +475,8 @@ static bool verify_data_os(const KeyData& data, OS test = OS::Unknown)
     OS::iOS
 #elif defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__)
     OS::tvOS
+#elif (TARGET_OS_VISION + 0)
+    OS::visionOS
 #elif defined(__ANDROID__)
     OS::Android
 #elif defined(_WIN32)

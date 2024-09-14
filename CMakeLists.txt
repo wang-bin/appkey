@@ -9,8 +9,7 @@ if(NOT DEFINED PROJECT_NAME)
 # TODO: tools.cmake
   project(keygen VERSION 0.1.0 DESCRIPTION "mdk key generator and validator") # LANGUAGES C CXX CXXPCH) # VERSION: cmake 3.0+
   set(PROJECT_VERSION_TWEAK 0)
-  # https://crascit.com/2015/03/28/enabling-cxx11-in-cmake/ (global and specified target)
-  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD 23)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   #set(CMAKE_CXX_EXTENSIONS OFF)
 else()
