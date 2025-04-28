@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2019-2025 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK
  * MDK SDK: https://github.com/wang-bin/mdk-sdk
  *
@@ -72,7 +72,7 @@ static const char kIdJoin[] = "/";
 MDK_NS_BEGIN
 namespace App {
 
-void* gUserAddr = nullptr;
+static void* gUserAddr = nullptr;
 
 using namespace chrono;
 static auto buildTime()
@@ -92,7 +92,7 @@ static auto buildTime()
     return system_clock::from_time_t(std::mktime(&t0));
 }
 
-int64_t timeAfterBuild()
+static int64_t timeAfterBuild()
 {
     static const auto build = buildTime();
     return duration_cast<seconds>(system_clock::now() - build).count();
@@ -123,7 +123,7 @@ static HMODULE get_user_module(int level = 0)
 }
 #endif
 
-std::string path_from_addr(void* addr)
+static std::string path_from_addr(void* addr)
 {
     if (!addr)
         return {};
@@ -149,7 +149,7 @@ _Pragma("weak dladdr") // dladdr is not always supported. android since 8(arm)/9
     return {};
 }
 
-string Name(int level = 0)
+static string Name(int level = 0)
 {
     if (level == 0) {
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__BIONIC__)
@@ -375,7 +375,7 @@ static ARCH arch_from_names(const string& S)
     return arch;
 }
 
-Restriction restriction_from_names(const string& S)
+static Restriction restriction_from_names(const string& S)
 {
     string s(S);
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){
@@ -601,7 +601,7 @@ static bool verify_data_version(const KeyData& data, int16_t test_major = -1, in
 
 static bool verify_data_appid(const KeyData& data, const string& test = string())
 {
-    int len = data.appid[0];
+    const int len = data.appid[0];
     if (len == 0)
         return true;
     string AppId;
@@ -642,14 +642,18 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
     return false;
 }
 
-bool verify_key(const string& key, const uint8_t pub[ED25519_KEY_LEN])
+static bool key_data(const string& key, const uint8_t pub[ED25519_KEY_LEN], KeyData* kd)
 {
     vector<uint8_t> data;
     if (!data_from_key_verify(key, pub, data))
         return false;
-    KeyData kd;
-    assert(sizeof(kd) == data.size());
-    memcpy(&kd, data.data(), sizeof(kd));
+    assert(sizeof(KeyData) == data.size());
+    memcpy(kd, data.data(), sizeof(KeyData));
+    return true;
+}
+
+static bool verify(const KeyData& kd)
+{
     bool ok = verify_data_os(kd);
     ok &= verify_data_arch(kd);
     ok &= verify_data_restriction(kd);
@@ -658,6 +662,14 @@ bool verify_key(const string& key, const uint8_t pub[ED25519_KEY_LEN])
     clog << "check version" << endl;
     ok &= verify_data_appid(kd);
     return ok;
+}
+
+bool verify_key(const string& key, const uint8_t pub[ED25519_KEY_LEN])
+{
+    KeyData kd;
+    if (!key_data(key, pub, &kd))
+        return false;
+    return verify(kd);
 }
 
 bool verify_key(const std::string& key, const uint8_t pub[32], const std::string& osnames, const std::string& archnames, const std::string& restrictions, int64_t seconds, int16_t major, int16_t minor, const std::string& appid)
@@ -739,13 +751,13 @@ void setUserAddress(void* addr)
     gUserAddr = addr;
 }
 
-bool checkLicense(const char* key)
+int checkLicense(const char* key)
 {
     static int licensed = -1;
     if (licensed > 0 && !key)
-        return true;
+        return licensed;
     if (skipLicense())
-        return true;
+        return 1;
     if (!key)
         key = std::getenv("MDK_KEY");
     if (!key) {
@@ -754,16 +766,19 @@ bool checkLicense(const char* key)
     } else {
         //clog << "verify key: " << key << endl;
     // DO NOT print key in log! Print details instead
-        if (verify_key(key, kKeyPub)) {
-            licensed = 1;
-            return true;
+        KeyData kd;
+        if (key_data(key, kKeyPub, &kd)) {
+            if (verify(kd)) {
+                licensed = kd.restriction == Restriction::None ? 2 : 1;
+                return licensed;
+            }
         }
     }
     std::clog << LogLevel::Error << "Bad " TOSTR(MDK_NS) " license!" << std::endl;
     std::clog << LogLevel::Error << TOSTR(MDK_NS) " SDK is outdated. Get a new free sdk from https://sourceforge.net/projects/mdk-sdk/files, or purchase a license.\n"
     "paypal: https://www.paypal.me/ibingow/500 or https://www.qtav.org/donate.html\n" << std::endl << std::flush;
     licensed = 0;
-    return false;
+    return 0;
 }
 
 } // namespace App
