@@ -156,7 +156,7 @@ static string Name(int level = 0)
     if (getprogname)
         return getprogname();
 #endif
-#if defined(_GNU_SOURCE) && !defined(__BIONIC__)
+#if defined(_GNU_SOURCE) && !defined(__BIONIC__) && !(__OHOS__ + 0)
     return program_invocation_short_name;
 #endif
 #if defined(__linux__) // android<21
