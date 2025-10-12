@@ -18,7 +18,7 @@ void setUserAddress(void* addr);
 // if key is null and no valid key was set, will try to check env "MDK_KEY" value.
 // if key is null and a valid key was set, return true
 // if key is not null, check the key, save and return the result
-// return 0 fail, 1 good key, 2 good key without restrictions
+// return 0 expired, -1 if invalid key, 1 good key, 2 good key but not debuggable, 3 no restrictions
 int checkLicense(const char* key = nullptr);
 
 std::string id(int level = 0);

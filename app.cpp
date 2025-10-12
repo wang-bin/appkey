@@ -634,7 +634,7 @@ static bool verify_data_appid(const KeyData& data, const string& test = string()
             if (name == appid || name2 == appid || name2 == "lib" + appid)
                 return true;
         } else {
-            if (name.find(appid) == 0 || name2.find(appid))
+            if (name.starts_with(appid) || name2.find(appid))
                 return true;
         }
     }
@@ -652,16 +652,17 @@ static bool key_data(const string& key, const uint8_t pub[ED25519_KEY_LEN], KeyD
     return true;
 }
 
-static bool verify(const KeyData& kd)
+static int verify(const KeyData& kd)
 {
     bool ok = verify_data_os(kd);
     ok &= verify_data_arch(kd);
     ok &= verify_data_restriction(kd);
-    ok &= verify_data_time(kd);
     ok &= verify_data_version(kd);
-    clog << "check version" << endl;
     ok &= verify_data_appid(kd);
-    return ok;
+    if (!ok)
+        return -1;
+    const auto expired = !verify_data_time(kd);
+    return !expired;
 }
 
 bool verify_key(const string& key, const uint8_t pub[ED25519_KEY_LEN])
@@ -753,13 +754,14 @@ void setUserAddress(void* addr)
 
 int checkLicense(const char* key)
 {
-    static int licensed = -1;
-    if (licensed > 0 && !key)
+    static int licensed = INT_MIN;
+    if (licensed > INT_MIN && !key)
         return licensed;
     if (skipLicense())
         return 1;
     if (!key)
         key = std::getenv("MDK_KEY");
+    int ret = 0;
     if (!key) {
         if (!expired())
             return licensed != 0; // license == 0 means expired or a wrong key was set
@@ -768,17 +770,20 @@ int checkLicense(const char* key)
     // DO NOT print key in log! Print details instead
         KeyData kd;
         if (key_data(key, kKeyPub, &kd)) {
-            if (verify(kd)) {
+            ret = verify(kd);
+            if (ret > 0) {
                 licensed = kd.restriction == Restriction::None ? 2 : 1;
                 return licensed;
             }
+        } else {
+            ret = -2;
         }
     }
     std::clog << LogLevel::Error << "Bad " TOSTR(MDK_NS) " license!" << std::endl;
     std::clog << LogLevel::Error << TOSTR(MDK_NS) " SDK is outdated. Get a new free sdk from https://sourceforge.net/projects/mdk-sdk/files, or purchase a license.\n"
     "paypal: https://www.paypal.me/ibingow/500 or https://www.qtav.org/donate.html\n" << std::endl << std::flush;
-    licensed = 0;
-    return 0;
+    licensed = ret;
+    return ret;
 }
 
 } // namespace App
