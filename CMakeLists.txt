@@ -30,6 +30,9 @@ if(TARGET cppcompat) # requires https://github.com/wang-bin/cppcompat
     #target_link_libraries(appkey PRIVATE cppcompat)
     link_libraries(cppcompat)
 endif()
+if(OHOS)
+    target_link_libraries(appkey PRIVATE bundle_ndk.z)
+endif()
 
 if(NOT WINRT)
   add_executable(keygen keygen.cpp)

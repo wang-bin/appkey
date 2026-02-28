@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2025 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2019-2026 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK
  * MDK SDK: https://github.com/wang-bin/mdk-sdk
  *
@@ -19,6 +19,9 @@
 extern "C" const char *getprogname(); //stdlib.h. apple, bsd, android21
 #if !(_WIN32+0)
 _Pragma("weak getprogname"); // android 21+
+#endif
+#if (__OHOS__ + 0)
+#include <bundle/native_interface_bundle.h>
 #endif
 //__progname: qnx, glibc, bionic libc. set in __init_misc
 #if defined(__linux__) // || defined(__QNX__) || defined(__QNXNTO__)
@@ -141,7 +144,7 @@ static std::string path_from_addr(void* addr)
     //return convert_codepage(wp.data(), len);
     return p;
 #elif defined(RTLD_DEFAULT) // check (0+__USE_GNU+__ELF__)? weak dlinfo? // mac, mingw, cygwin has no dlinfo
-_Pragma("weak dladdr") // dladdr is not always supported. android since 8(arm)/9(x86)
+_Pragma("weak dladdr") // dladdr is not always supported. android since 8(arm)/9(x86). android > 6.0 (bionic e2a8b1fd)?
     Dl_info info;
     if (dladdr && dladdr(addr, &info))
         return info.dli_fname;
@@ -155,6 +158,15 @@ static string Name(int level = 0)
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__BIONIC__)
     if (getprogname)
         return getprogname();
+#endif
+#if (__OHOS__ + 0)
+    const auto i = OH_NativeBundle_GetCurrentApplicationInfo();
+    free(i.fingerprint);
+    if (i.bundleName) {
+        string b(i.bundleName);
+        free(i.bundleName);
+        return b;
+    }
 #endif
 #if defined(_GNU_SOURCE) && !defined(__BIONIC__) && !(__OHOS__ + 0)
     return program_invocation_short_name;
@@ -264,6 +276,7 @@ enum class OS : uint16_t {
     RaspberryPi = 1 << 7,
     Sunxi = 1 << 8,
     Sailfish = 1 << 9,
+    OHOS = 1 << 10,
     // BSD
     All = 0xffff,
 };
@@ -332,6 +345,8 @@ static OS os_from_names(const string& S)
         os |= OS::Sunxi;
     if (s.find("sailfish") != string::npos)
         os |= OS::Sailfish;
+    if (s.find("ohos") != string::npos || s.find("harmony") != string::npos)
+        os |= OS::OHOS;
     if (s.find("all") != string::npos)
         os |= OS::All;
     return os;
@@ -479,6 +494,8 @@ static bool verify_data_os(const KeyData& data, OS test = OS::Unknown)
     OS::visionOS
 #elif defined(__ANDROID__)
     OS::Android
+#elif (__OHOS__ + 0)
+    OS::OHOS
 #elif defined(_WIN32)
 # if defined(MDK_WINRT)
     OS::UWP
