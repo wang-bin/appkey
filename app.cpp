@@ -126,6 +126,36 @@ static HMODULE get_user_module(int level = 0)
 }
 #endif
 
+#if (__linux__ + 0)
+static string path_from_addr_maps(uintptr_t addr) {
+    clog << fmt::to_string("%s: %p", __func__, (void*)addr) << endl;
+    string ret;
+    FILE *fp = fopen("/proc/self/maps", "r");
+    if (!fp)
+        return ret;
+    char line[512];
+    while (fgets(line, sizeof(line), fp)) {
+        uintptr_t start, end;
+        char perms[5], path[256] = {};
+// 76a6f08000-76a6f09000 r-xp 00001000 07:88 43                             /apex/com.android.runtime/lib64/bionic/libdl.so
+        // addr-range perms offset device inode path
+        sscanf(line, "%" SCNxPTR "-%" SCNxPTR " %4s %*s %*s %*s %255[^\n]", &start, &end, perms, path);
+        if (addr >= start && addr < end) {
+            char *p = path;
+            while (*p == ' ') p++;
+            char *q = p + strlen(p) - 1;
+            while (q > p && (*q == ' ' || *q == '\n')) q--;
+            *(q + 1) = '\0';
+            if (strlen(p) > 0)
+                ret = p;
+            break;
+        }
+    }
+    fclose(fp);
+    return ret;
+}
+#endif // (__linux__ + 0)
+
 static std::string path_from_addr(void* addr)
 {
     if (!addr)
@@ -148,6 +178,10 @@ _Pragma("weak dladdr") // dladdr is not always supported. android since 8(arm)/9
     Dl_info info;
     if (dladdr && dladdr(addr, &info))
         return info.dli_fname;
+# if (__linux__ + 0)
+    // fallback to maps if dladdr failed. android 8+ may fail for some system libs, but works for app libs
+    return path_from_addr_maps((uintptr_t)addr);
+# endif
 #endif
     return {};
 }
